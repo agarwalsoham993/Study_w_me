@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FocusEdu</title>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS with Dark Mode Config -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        midnight: '#0f172a',
+                        'midnight-light': '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- App Logic -->
+    <script>
+        function studyApp() {
+            return {
+                // Theme State
+                darkMode: false,
+
+                // Timer State
+                timeLeft: 25 * 60,
+                effectiveTime: 0,
+                selectedDuration: 25,
+                timerRunning: false,
+                timerInterval: null,
+                
+                // Video State
+                videoType: 'youtube', 
+                youtubeInput: '',
+                currentYoutubeId: '', 
+                
+                // AI/Vision State
+                cameraReady: false,
+                currentStatus: 'Initializing...',
+                isStudying: false,
+                phoneDetected: false,
+                userMissing: false,
+                gazeDirection: 'Center',
+                
+                // UI Message State
+                alertMessage: null, 
+                alertType: '', 
+                fadingMessage: null,
+                lastFadingTime: 0,
+                
+                // 100 Best Study Quotes
+                motivationalTexts: [
+                    "You are capable of amazing things.", "Believe in yourself.", "Focus on your goals.", "Dream big, study hard.", "Success is a series of small wins.",
+                    "Your potential is endless.", "Make it happen.", "Stay positive, work hard.", "Do it for your future self.", "Every session counts.",
+                    "Discipline is self-love.", "Fall in love with the process.", "You got this, girl!", "Starve your distractions.", "Feed your focus.",
+                    "Growth happens outside the comfort zone.", "Be the energy you want to attract.", "Study now, shine later.", "Productivity looks good on you.", "Create the life you can't wait to wake up to.",
+                    "Don't stop until you're proud.", "Little by little, one travels far.", "Focus is the new pretty.", "Your only limit is your mind.", "Work hard in silence, let success make the noise.",
+                    "Be a goal digger.", "Smart is the new cool.", "Invest in your mind.", "Knowledge is power.", "Stay humble, hustle hard.",
+                    "Good things take time.", "Keep going, you're getting there.", "Trust the timing of your life.", "Progress over perfection.", "You are building a masterpiece.",
+                    "The best view comes after the hardest climb.", "Motivation gets you started; habit keeps you going.", "Don't wish for it, work for it.", "Be so good they can't ignore you.", "Success is the sum of small efforts repeated day in and day out.",
+                    "Your future needs you.", "Today is a great day to learn something new.", "Shine bright like a diamond.", "Focus on the step in front of you.", "Keep your eyes on the stars and your feet on the ground.",
+                    "You are stronger than you think.", "It always seems impossible until it's done.", "Start where you are. Use what you have. Do what you can.", "Success doesn't come to you, you go to it.", "Wake up with determination. Go to bed with satisfaction.",
+                    "Don't watch the clock; do what it does. Keep going.", "The secret of getting ahead is getting started.", "Quality over quantity.", "Study like there's no tomorrow.", "Be the girl who decided to go for it.",
+                    "Hustle and heart will set you apart.", "Turning coffee into degrees.", "Romanticize your life.", "Visualize your highest self.", "Manifesting good grades.",
+                    "Clear mind, full heart.", "Breathe in confidence, breathe out doubt.", "You are magic.", "Self-discipline is the highest form of self-love.", "Your ambition is your superpower.",
+                    "Glow through what you go through.", "Make your own luck.", "Preparation is the key to success.", "Focus on the good.", "Positive mind, positive vibes, positive life.",
+                    "Be fearless in the pursuit of what sets your soul on fire.", "Success is not final, failure is not fatal.", "Everything you need is already inside you.", "Be the CEO of your life.", "Empowered women empower women.",
+                    "Kindness and knowledge are beautiful.", "Stay peachy.", "Bloom where you are planted.", "Radiate positivity.", "Choose to shine.",
+                    "Hard work beats talent when talent doesn't work hard.", "There is no substitute for hard work.", "Study hard, nap harder.", "Coffee in one hand, confidence in the other.", "Learning is a treasure that will follow its owner everywhere.",
+                    "Education is the passport to the future.", "The roots of education are bitter, but the fruit is sweet.", "Develop a passion for learning.", "The expert in anything was once a beginner.", "There are no shortcuts to any place worth going.",
+                    "Genius is 1% inspiration, 99% perspiration.", "I am creating the life of my dreams.", "My potential is limitless.", "I am focused and persistent.", "Every day I am getting smarter.",
+                    "I can handle whatever comes my way.", "I am worthy of my dreams.", "I choose to focus.", "Success is my destiny.", "I am proud of my progress.", "Just keep swimming."
+                ],
+                
+                init() {
+                    this.timeLeft = this.selectedDuration * 60;
+                    this.startVisionSystem();
+                },
+
+                toggleTheme() {
+                    this.darkMode = !this.darkMode;
+                },
+
+                // --- Timer Logic ---
+                setDuration(min) {
+                    this.selectedDuration = min;
+                    this.timeLeft = min * 60;
+                    this.timerRunning = false;
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                },
+
+                toggleTimer() {
+                    if (this.timerRunning) {
+                        this.stopTimer();
+                    } else {
+                        this.startTimer();
+                    }
+                },
+
+                startTimer() {
+                    if(!this.cameraReady) {
+                        this.alertMessage = "Wait for camera... ✨";
+                        this.alertType = "info";
+                        setTimeout(() => this.alertMessage = null, 2000);
+                        return;
+                    }
+                    this.timerRunning = true;
+                    this.timerInterval = setInterval(() => {
+                        if (!this.userMissing) {
+                            if (this.timeLeft > 0) {
+                                this.timeLeft--;
+                            } else {
+                                this.finishSession();
+                            }
+                        }
+
+                        if (this.isStudying && !this.phoneDetected && !this.userMissing) {
+                            this.effectiveTime++;
+                        }
+                        
+                        this.updateMessages();
+
+                    }, 1000);
+                },
+
+                stopTimer() {
+                    this.timerRunning = false;
+                    if (this.timerInterval) clearInterval(this.timerInterval);
+                    this.alertMessage = null;
+                },
+
+                finishSession() {
+                    this.stopTimer();
+                    const efficiency = ((this.effectiveTime / (this.selectedDuration * 60)) * 100).toFixed(1);
+                    this.alertMessage = `Session Done! Efficiency: ${efficiency}% 💖`;
+                    this.alertType = 'finished'; 
+                },
+
+                formatTime(seconds) {
+                    if (typeof seconds !== 'number') return '00:00';
+                    const m = Math.floor(seconds / 60);
+                    const s = seconds % 60;
+                    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                },
+
+                // --- Video Logic ---
+                loadYoutube() {
+                    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                    const match = this.youtubeInput.match(regExp);
+                    if (match && match[2].length === 11) {
+                        this.currentYoutubeId = match[2];
+                    } else {
+                        alert("Oops! Invalid YouTube URL 🌸");
+                    }
+                },
+
+                handleFileUpload(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const videoNode = this.$refs.uploadedVideo;
+                        videoNode.src = URL.createObjectURL(file);
+                    }
+                },
+
+                // --- UI Update Logic ---
+                updateMessages() {
+                    const now = Date.now();
+
+                    if (this.userMissing) {
+                        this.alertMessage = "Where did you go? 🥺";
+                        this.alertType = "missing";
+                    } else if (this.phoneDetected) {
+                        this.alertMessage = "No phone allowed! 📵";
+                        this.alertType = "phone";
+                    } else if (this.gazeDirection === 'Side') { 
+                        this.alertMessage = "Each second of yours is important! ✨";
+                        this.alertType = "distracted";
+                    } else {
+                        this.alertMessage = null;
+
+                        // Show message every 10 seconds if studying
+                        if (this.isStudying && (now - this.lastFadingTime > 10000)) {
+                            const text = this.motivationalTexts[Math.floor(Math.random() * this.motivationalTexts.length)];
+                            this.triggerFadingMessage(text);
+                            this.lastFadingTime = now;
+                        }
+                    }
+                },
+
+                triggerFadingMessage(text) {
+                    this.fadingMessage = null; 
+                    setTimeout(() => {
+                        this.fadingMessage = text;
+                    }, 50);
+                },
+
+                get statusColor() {
+                    if (this.userMissing) return 'text-slate-400';
+                    if (this.phoneDetected) return 'text-rose-400';
+                    if (this.isStudying) return 'text-emerald-400';
+                    return 'text-orange-400';
+                },
+
+                // --- VISION SYSTEM ---
+                async startVisionSystem() {
+                    const videoElement = document.getElementById('input-video');
+                    
+                    if (!typeof Camera === 'undefined' || !typeof FaceMesh === 'undefined') {
+                        setTimeout(() => this.startVisionSystem(), 500);
+                        return;
+                    }
+
+                    try {
+                        const camera = new Camera(videoElement, {
+                            onFrame: async () => {},
+                            width: 640,
+                            height: 360
+                        });
+                        await camera.start();
+                    } catch (e) {
+                        alert("Please allow camera access for the magic to work! ✨");
+                    }
+
+                    const faceMesh = new FaceMesh({locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+                    }});
+                    
+                    faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: false,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+
+                    faceMesh.onResults(this.onFaceResults.bind(this));
+
+                    let objectDetector = null;
+                    if (typeof cocoSsd !== 'undefined') {
+                        cocoSsd.load({ base: 'lite_mobilenet_v2' }).then(model => {
+                            objectDetector = model;
+                            this.cameraReady = true;
+                            this.currentStatus = "Ready ✨";
+                        });
+                    }
+
+                    let frameCount = 0;
+                    setInterval(async () => {
+                        if (!this.cameraReady || videoElement.paused || videoElement.ended) return;
+                        frameCount++;
+                        try { await faceMesh.send({image: videoElement}); } catch(e) {}
+                        
+                        if (frameCount % 5 === 0 && objectDetector) {
+                            // UPDATED: Increased threshold to 0.65 (65% confidence)
+                            const predictions = await objectDetector.detect(videoElement, 20, 0.40);
+                            const phone = predictions.find(p => p.class === 'cell phone' || p.class === 'remote');
+                            this.phoneDetected = !!phone;
+                        }
+                    }, 200); 
+                },
+
+                onFaceResults(results) {
+                    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+                        this.userMissing = false;
+                        const landmarks = results.multiFaceLandmarks[0];
+
+                        const nose = landmarks[1];
+                        const leftCheek = landmarks[234];
+                        const rightCheek = landmarks[454];
+                        const forehead = landmarks[10];
+                        const chin = landmarks[152];
+
+                        const distToLeft = Math.abs(nose.x - leftCheek.x);
+                        const distToRight = Math.abs(nose.x - rightCheek.x);
+                        const totalWidth = distToLeft + distToRight;
+                        const yawRatio = distToLeft / totalWidth;
+
+                        const distToTop = Math.abs(nose.y - forehead.y);
+                        const distToBottom = Math.abs(nose.y - chin.y);
+                        const totalHeight = distToTop + distToBottom;
+                        const pitchRatio = distToTop / totalHeight;
+
+                        const isLookingSide = yawRatio < 0.30 || yawRatio > 0.70;
+                        const isLookingDown = pitchRatio > 0.75; 
+                        
+                        if (isLookingSide) {
+                            this.gazeDirection = 'Side';
+                            this.isStudying = false;
+                            this.currentStatus = "Distracted";
+                        } else if (isLookingDown) {
+                            this.gazeDirection = 'Down';
+                            this.isStudying = true;
+                            this.currentStatus = "Studying";
+                        } else {
+                            this.gazeDirection = 'Screen';
+                            this.isStudying = true; 
+                            this.currentStatus = "Watching";
+                        }
+
+                    } else {
+                        this.userMissing = true;
+                        this.isStudying = false;
+                        this.currentStatus = "No User";
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Alpine.js -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- MediaPipe & TensorFlow -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+    <style>
+        /* Base Light Theme */
+        body {
+            background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+            background-color: #fff1f2;
+            background-image: 
+                radial-gradient(at 40% 20%, hsla(28,100%,74%,0.2) 0px, transparent 50%),
+                radial-gradient(at 80% 0%, hsla(189,100%,56%,0.2) 0px, transparent 50%),
+                radial-gradient(at 0% 50%, hsla(340,100%,76%,0.2) 0px, transparent 50%);
+            
+            color: #475569;
+            font-family: 'Quicksand', sans-serif;
+            overflow-x: hidden;
+            transition: background 0.5s ease, color 0.5s ease;
+        }
+
+        /* Dark Mode Theme overrides */
+        body.dark {
+            background-color: #0f172a; /* Slate 900 */
+            background-image: 
+                radial-gradient(at 10% 20%, hsla(258, 60%, 20%, 0.4) 0px, transparent 50%),
+                radial-gradient(at 80% 0%, hsla(320, 50%, 20%, 0.3) 0px, transparent 50%),
+                radial-gradient(at 40% 80%, hsla(220, 50%, 15%, 0.5) 0px, transparent 50%);
+            color: #e2e8f0;
+        }
+
+        /* Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+            transition: all 0.5s ease;
+        }
+
+        /* Dark Mode Glass */
+        body.dark .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Animations */
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+            10% { opacity: 1; transform: translateY(0) scale(1); }
+            90% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-10px) scale(1.05); }
+        }
+
+        @keyframes pulse-soft {
+            0% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(251, 113, 133, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0); }
+        }
+
+        .animate-message { animation: fadeInOut 4s ease-in-out forwards; }
+        .status-alert { animation: pulse-soft 2s infinite; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .video-wrapper iframe, .video-wrapper video { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+        
+        .btn-aesthetic { transition: all 0.3s ease; }
+        .btn-aesthetic:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col transition-colors duration-500" x-data="studyApp()" :class="{ 'dark': darkMode }">
+
+    <!-- Top Bar -->
+    <header class="w-full glass-panel sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-3 h-3 rounded-full shadow-sm transition-colors" :class="cameraReady ? 'bg-emerald-400' : 'bg-yellow-400 animate-pulse'"></div>
+                <h1 class="font-bold text-2xl tracking-tight bg-gradient-to-r from-pink-500 to-violet-500 bg-clip-text text-transparent">
+                    Focus
+                </h1>
+            </div>
+            
+            <!-- Dark Mode Toggle -->
+            <button @click="toggleTheme" class="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" :title="darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'">
+                <span x-show="!darkMode" class="text-xl">🌙</span>
+                <span x-show="darkMode" class="text-xl">☀️</span>
+            </button>
+        </div>
+
+        <!-- Timer Controls -->
+        <div class="flex items-center gap-4 md:gap-6">
+            <div class="flex flex-col items-end">
+                <span class="text-[10px] uppercase tracking-widest font-bold" :class="darkMode ? 'text-pink-300' : 'text-pink-400'">Timer</span>
+                <span class="text-3xl font-bold tabular-nums drop-shadow-sm transition-colors" :class="darkMode ? 'text-white' : 'text-slate-700'" x-text="formatTime(timeLeft)"></span>
+            </div>
+            
+            <button @click="toggleTimer" class="btn-aesthetic w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all"
+                :class="timerRunning ? 'bg-rose-100 text-rose-500 hover:bg-rose-200 dark:bg-rose-900/30 dark:text-rose-300' : 'bg-gradient-to-br from-pink-400 to-rose-400 text-white hover:shadow-rose-300/50'">
+                <svg x-show="!timerRunning" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <svg x-show="timerRunning" xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </button>
+
+            <div class="flex flex-col items-start pl-4 border-l-2" :class="darkMode ? 'border-pink-900' : 'border-pink-100'">
+                <span class="text-[10px] uppercase tracking-widest font-bold" :class="darkMode ? 'text-pink-300' : 'text-pink-400'">Focus Time</span>
+                <span class="text-xl font-bold tabular-nums transition-colors" :class="darkMode ? 'text-violet-300' : 'text-violet-500'" x-text="formatTime(effectiveTime)"></span>
+            </div>
+        </div>
+
+        <!-- Duration Select -->
+        <div class="flex gap-2 text-sm p-1 rounded-xl border transition-colors" :class="darkMode ? 'bg-slate-800/50 border-slate-700' : 'bg-white/50 border-white'">
+            <template x-for="min in [15, 25, 30, 45]">
+                <button @click="setDuration(min)" 
+                    class="px-4 py-1.5 rounded-lg transition-all font-medium"
+                    :class="selectedDuration === min ? (darkMode ? 'bg-pink-600 text-white shadow-md' : 'bg-white text-pink-500 shadow-md') : (darkMode ? 'text-slate-400 hover:text-pink-300' : 'text-slate-400 hover:text-pink-400')"
+                    x-text="min">
+                </button>
+            </template>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow flex flex-col md:flex-row p-6 gap-6 h-[calc(100vh-90px)]">
+        
+        <!-- Video Area (Left/Top) -->
+        <div class="flex-grow relative flex flex-col w-full h-full glass-panel rounded-3xl overflow-hidden shadow-xl ring-4 transition-all" :class="darkMode ? 'ring-white/5' : 'ring-white/30'">
+            
+            <!-- Video Source Controls -->
+            <div class="absolute top-6 left-6 right-6 z-20 flex gap-2 transition-opacity duration-300" :class="timerRunning ? 'opacity-0 hover:opacity-100' : 'opacity-100'">
+                <div class="backdrop-blur-md rounded-xl p-1.5 flex w-full max-w-xl mx-auto shadow-sm border transition-colors" :class="darkMode ? 'bg-slate-900/80 border-slate-700' : 'bg-white/80 border-white'">
+                    <button @click="videoType = 'youtube'" :class="videoType === 'youtube' ? (darkMode ? 'bg-pink-900/50 text-pink-300' : 'bg-pink-100 text-pink-600') : 'text-slate-500'" class="px-4 py-2 rounded-lg text-sm font-bold transition-colors">YouTube</button>
+                    <button @click="videoType = 'upload'" :class="videoType === 'upload' ? (darkMode ? 'bg-pink-900/50 text-pink-300' : 'bg-pink-100 text-pink-600') : 'text-slate-500'" class="px-4 py-2 rounded-lg text-sm font-bold transition-colors">Upload</button>
+                    
+                    <input x-show="videoType === 'youtube'" x-model="youtubeInput" @keyup.enter="loadYoutube" type="text" placeholder="Paste YouTube Link here..." class="flex-grow bg-transparent border-none focus:ring-0 text-sm px-4 placeholder-slate-400 outline-none" :class="darkMode ? 'text-slate-200' : 'text-slate-700'">
+                    <input x-show="videoType === 'upload'" type="file" @change="handleFileUpload" accept="video/*" class="flex-grow bg-transparent text-sm px-4 pt-1.5 text-slate-500 file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs font-medium" :class="darkMode ? 'file:bg-pink-900/50 file:text-pink-300' : 'file:bg-pink-100 file:text-pink-600'">
+                </div>
+            </div>
+
+            <!-- The Video Player -->
+            <div class="relative w-full h-full flex items-center justify-center video-wrapper transition-colors" :class="darkMode ? 'bg-black' : 'bg-slate-100'">
+                <template x-if="videoType === 'youtube' && currentYoutubeId">
+                    <iframe :src="`https://www.youtube.com/embed/${currentYoutubeId}?enablejsapi=1`" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                </template>
+                <template x-if="videoType === 'youtube' && !currentYoutubeId">
+                    <div class="flex flex-col items-center" :class="darkMode ? 'text-slate-500' : 'text-slate-400'">
+                        <div class="p-6 rounded-full mb-4" :class="darkMode ? 'bg-slate-800' : 'bg-pink-50'">
+                            <svg class="w-12 h-12" :class="darkMode ? 'text-slate-400' : 'text-pink-300'" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <span class="font-medium text-lg">Paste a link to start studying ✨</span>
+                        <span class="text-sm mt-2 opacity-60">Try 'lofi girl' or 'study with me'</span>
+                    </div>
+                </template>
+                
+                <video x-ref="uploadedVideo" x-show="videoType === 'upload'" controls class="w-full h-full"></video>
+
+                <!-- SMART OVERLAY (Messages) -->
+                <!-- Non-Fading Messages (Blocker) -->
+                <div x-show="alertMessage && alertType !== 'finished'" 
+                     class="absolute inset-0 z-30 flex items-center justify-center backdrop-blur-md transition-all duration-300"
+                     :class="darkMode ? 'bg-black/60' : 'bg-white/40'">
+                    <div class="px-8 py-6 rounded-3xl shadow-2xl border-4 transform transition-all"
+                        :class="[
+                            darkMode ? 'bg-slate-900/90' : 'bg-white/90',
+                            alertType === 'phone' ? (darkMode ? 'border-rose-900 text-rose-400' : 'border-rose-200 text-rose-500') : 
+                            alertType === 'missing' ? (darkMode ? 'border-amber-900 text-amber-400' : 'border-amber-200 text-amber-500') : 
+                            alertType === 'distracted' ? (darkMode ? 'border-purple-900 text-purple-400' : 'border-purple-200 text-purple-500') : 
+                            (darkMode ? 'border-blue-900 text-blue-400' : 'border-blue-200 text-blue-500')
+                        ]">
+                        <h2 class="text-2xl md:text-4xl font-bold text-center" x-text="alertMessage"></h2>
+                    </div>
+                </div>
+                
+                <!-- Session Finished -->
+                <div x-show="alertMessage && alertType === 'finished'" 
+                     class="absolute inset-0 z-30 flex items-center justify-center bg-black/10 backdrop-blur-sm">
+                    <div class="px-10 py-8 rounded-3xl shadow-2xl text-center border-4" :class="darkMode ? 'bg-slate-900 border-emerald-900' : 'bg-white border-emerald-200'">
+                         <div class="text-6xl mb-4">🎉</div>
+                         <h2 class="text-3xl font-bold mb-2" :class="darkMode ? 'text-white' : 'text-slate-700'" x-text="alertMessage"></h2>
+                         <button @click="alertMessage = null" class="mt-4 px-6 py-2 bg-emerald-400 text-white rounded-full font-bold shadow-lg hover:bg-emerald-500 transition">Awesome!</button>
+                    </div>
+                </div>
+
+                <!-- Fading Messages (Motivation Quotes) -->
+                <div x-show="fadingMessage"
+                     class="absolute bottom-12 left-0 right-0 z-20 flex justify-center pointer-events-none px-4">
+                     <div class="animate-message px-8 py-3 rounded-2xl backdrop-blur-md font-bold text-lg md:text-xl shadow-lg border text-center transition-colors"
+                          :class="darkMode ? 'bg-slate-900/80 text-white border-white/20' : 'bg-white/80 text-slate-700 border-white/60'">
+                        <span x-text="fadingMessage"></span> 💖
+                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Vision/Stats Panel (Right/Bottom) -->
+        <div class="hidden md:flex flex-col w-72 gap-6 flex-shrink-0">
+            <!-- Camera Feed -->
+            <div class="glass-panel rounded-3xl p-3 relative shadow-md">
+                <div class="absolute top-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold z-10 uppercase tracking-widest shadow-sm transition-colors" 
+                    :class="isStudying ? 'bg-emerald-400 text-white' : (darkMode ? 'bg-slate-700 text-slate-300' : 'bg-slate-200 text-slate-500')">
+                    Camera
+                </div>
+                <video id="input-video" class="w-full rounded-2xl transform -scale-x-100 opacity-90 border-2 border-white/50" playsinline muted></video>
+                <canvas id="output-canvas" class="hidden"></canvas>
+            </div>
+
+            <!-- Stats -->
+            <div class="glass-panel rounded-3xl p-6 flex-grow flex flex-col gap-4 shadow-md">
+                <h3 class="text-xs uppercase tracking-widest font-bold border-b pb-3 transition-colors" :class="darkMode ? 'text-pink-300 border-pink-900' : 'text-pink-400 border-pink-100'">Live Status</h3>
+                
+                <div>
+                    <div class="flex justify-between text-xs mb-2 font-bold">
+                        <span class="transition-colors" :class="darkMode ? 'text-slate-400' : 'text-slate-400'">Current Mood</span>
+                        <span class="" :class="statusColor" x-text="currentStatus"></span>
+                    </div>
+                    <div class="h-3 w-full rounded-full overflow-hidden shadow-inner transition-colors" :class="darkMode ? 'bg-slate-800' : 'bg-slate-100'">
+                        <div class="h-full transition-all duration-500 ease-out rounded-full" 
+                             :class="isStudying ? 'bg-gradient-to-r from-emerald-300 to-teal-300' : 'bg-gradient-to-r from-rose-300 to-orange-300'" 
+                             style="width: 100%"></div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 mt-auto">
+                    <div class="rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-colors" :class="darkMode ? 'bg-slate-800/60' : 'bg-white/60'">
+                        <div class="text-xl mb-1" x-text="phoneDetected ? '📱' : '✨'"></div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Phone</div>
+                        <div class="text-xs font-bold mt-1" :class="phoneDetected ? 'text-rose-500' : 'text-emerald-500'" x-text="phoneDetected ? 'Hidden' : 'Safe'"></div>
+                    </div>
+                    <div class="rounded-2xl p-3 flex flex-col items-center justify-center text-center shadow-sm transition-colors" :class="darkMode ? 'bg-slate-800/60' : 'bg-white/60'">
+                        <div class="text-xl mb-1">👀</div>
+                        <div class="text-[10px] uppercase font-bold text-slate-400">Focus</div>
+                        <div class="text-xs font-bold mt-1" :class="darkMode ? 'text-violet-300' : 'text-violet-500'" x-text="gazeDirection"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
