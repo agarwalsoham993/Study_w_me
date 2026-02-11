@@ -20,6 +20,7 @@
         }
     </script>
 
+    <!-- Removed coco-ssd (Phone detection) to optimize performance -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
@@ -174,6 +175,8 @@
 
                 updateMessages() {
                     const now = Date.now();
+                    // Prioritize Pitch check: If looking down, we are good.
+                    // Only check side gaze if we are NOT looking down.
                     if (this.gazeDirection === 'Side') { 
                         this.alertMessage = "Make each second worth it";
                         this.alertType = "distracted";
@@ -237,7 +240,7 @@
                     this.cameraReady = true;
                     this.currentStatus = "Ready ✨";
 
-                    // Highly optimized for mobile: Process only 1 frame per second
+                    // Highly optimized for mobile: Process only 1 frame per second (1000ms)
                     setInterval(async () => {
                         if (!this.cameraReady || videoElement.paused || videoElement.ended) return;
                         try { await faceMesh.send({image: videoElement}); } catch(e) {}
@@ -256,21 +259,28 @@
                         const yawRatio = Math.abs(nose.x - leftCheek.x) / (Math.abs(nose.x - leftCheek.x) + Math.abs(nose.x - rightCheek.x));
                         const pitchRatio = Math.abs(nose.y - forehead.y) / (Math.abs(nose.y - forehead.y) + Math.abs(nose.y - chin.y));
 
-                        // Prioritize Pitch check: If head is lowered, mark as studying irrespective of side view
-                        if (pitchRatio > 0.75) {
+                        // 1. Check Pitch FIRST (Looking Down)
+                        // This covers: Down-Center, Down-Left, Down-Right
+                        if (pitchRatio > 0.70) { 
                             this.gazeDirection = 'Down';
                             this.isStudying = true;
                             this.currentStatus = "Studying";
-                        } else if (yawRatio < 0.28 || yawRatio > 0.72) {
+                        } 
+                        // 2. Then Check Yaw (Looking Side)
+                        // Only triggers if we are NOT looking down
+                        else if (yawRatio < 0.28 || yawRatio > 0.72) {
                             this.gazeDirection = 'Side';
                             this.isStudying = false;
                             this.currentStatus = "Distracted";
-                        } else {
+                        } 
+                        // 3. Otherwise, watching screen
+                        else {
                             this.gazeDirection = 'Screen';
                             this.isStudying = true; 
                             this.currentStatus = "Watching";
                         }
                     }
+                    // Removed "No User Found" logic to prevent status flickering
                 }
             }
         }
@@ -395,11 +405,13 @@
                 </div>
 
                 <div class="flex flex-col gap-3 mt-auto">
+                    <!-- Focus Status -->
                     <div class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-3 text-center w-full">
                         <div class="text-[10px] uppercase font-bold text-slate-400">Focus</div>
                         <div class="text-xs font-bold text-violet-400" x-text="gazeDirection"></div>
                     </div>
 
+                    <!-- YouTube History Panel -->
                     <div x-show="youtubeHistory.length > 0" class="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-3 w-full">
                         <div class="text-[10px] uppercase font-bold text-slate-400 mb-2 text-center">Recent Videos</div>
                         <div class="flex flex-col gap-1.5">
